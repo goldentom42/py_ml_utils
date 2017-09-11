@@ -57,7 +57,7 @@ class FeatureTransformation(object):
     def transform(self, data):
         if self.fitted is not True:
             raise NotFittedError("Transformation is not fitted yet.")
-        # TODO we could use shuffle here
+        # Check if shadow shuffling process has to be used
         if self._shadow:
             temp = self._transform_special_process(data)
             if "dataframe" in str(type(temp)).lower():
