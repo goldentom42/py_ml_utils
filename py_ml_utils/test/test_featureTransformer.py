@@ -1,6 +1,13 @@
 from unittest import TestCase
 from py_ml_utils.feature_transformer import *
 from sklearn.model_selection import KFold
+import os.path
+
+
+def get_path(file_name):
+    """ Ensure file path is correct wherever the tests are called from """
+    my_path = os.path.abspath(os.path.dirname(__file__))
+    return os.path.join(my_path, file_name)
 
 
 class TestFeatureTransformer(TestCase):
@@ -346,7 +353,7 @@ class TestFeatureTransformer(TestCase):
         ft_frame = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         full_frame = pd.concat([series, ft_frame], axis=1)
         # check resulting series and index
-        expected_results = pd.read_csv("test_dummies_01.csv", index_col=0)
+        expected_results = pd.read_csv(get_path("test_dummies_01.csv"), index_col=0)
         cols = ["test_A", "test_B", "test_C", "test_D"]
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
 
@@ -370,7 +377,7 @@ class TestFeatureTransformer(TestCase):
         ft_frame = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         full_frame = pd.concat([series, ft_frame], axis=1)
         # check resulting series and index
-        expected_results = pd.read_csv("test_dummies_01.csv", index_col=0)
+        expected_results = pd.read_csv(get_path("test_dummies_01.csv"), index_col=0)
         self.assertEqual(list(ft_frame.columns), ["test_A", "test_B", "test_C"])
         cols = ft_frame.columns
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
@@ -395,7 +402,7 @@ class TestFeatureTransformer(TestCase):
         ft_frame = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         full_frame = pd.concat([series, ft_frame], axis=1)
         # check resulting series and index
-        expected_results = pd.read_csv("test_dummies_02.csv", index_col=0)
+        expected_results = pd.read_csv(get_path("test_dummies_02.csv"), index_col=0)
         self.assertEqual(list(ft_frame.columns), ["test_A", "test_B", "test_other"])
         cols = ft_frame.columns
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
@@ -521,7 +528,7 @@ class TestFeatureTransformer(TestCase):
         ft_series = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         # ft_series.to_csv("test_classifier_proba.csv", index=True)
         # print(ft_series)
-        expected_res = pd.read_csv("test_classifier_proba.csv", index_col=0)
+        expected_res = pd.read_csv(get_path("test_classifier_proba.csv"), index_col=0)
 
         self.assertAlmostEqual(0, (expected_res - ft_series).abs().mean().mean(), places=8)
 
@@ -548,7 +555,7 @@ class TestFeatureTransformer(TestCase):
                                                  drop_level=0.25,
                                                  keep_dum_cols_with_nan=False)
         data_df = series.to_frame(name="test")
-        expected_res = pd.read_csv("test_classifier_proba.csv", index_col=0)
+        expected_res = pd.read_csv(get_path("test_classifier_proba.csv"), index_col=0)
 
         for i, (trn_idx, val_idx) in enumerate(folds.split(data_df, target)):
             trn_X, trn_Y = data_df.iloc[trn_idx], target.iloc[trn_idx]
