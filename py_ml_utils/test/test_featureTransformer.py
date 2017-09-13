@@ -159,8 +159,8 @@ class TestFeatureTransformer(TestCase):
         # check resulting series and index
         expected_results = pd.Series([0.25, 0.25, 0.0, 0.25, 0.0,
                                       0.25, 0.25, 0.0, 0.25, 0.25,
-                                      0.25, 1/3, 0.25, 2/3, 2/3,
-                                      2/3, 0.25, 1/3, 2/3, 0.25], index=idx)
+                                      0.25, 1./3., 0.25, 2./3., 2./3.,
+                                      2./3., 0.25, 1./3., 2./3., 0.25], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
 
     def test__feature_transform_median_average(self):
@@ -207,7 +207,6 @@ class TestFeatureTransformer(TestCase):
         ft = FrequencyTransformation(feature_name="test", noise_level=0)
         ft_series = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         # check resulting series and index
-        # print(ft_series)
         expected_results = pd.Series([0.4, 0.4, 0.2, 0.4, 0.2,
                                       0.4, 0.4, 0.2, 0.4, 0.4,
                                       0.4, 0.3, 0.4, 0.3, 0.3,
@@ -500,7 +499,6 @@ class TestFeatureTransformer(TestCase):
             val_X, val_Y = data_df.iloc[val_idx], target.iloc[val_idx]
             ft.fit(trn_X, trn_Y)
             ft_series = ft.transform(val_X)
-            # print(ft_series)
             self.assertAlmostEqual(0, (expected_res[i*10: i*10+10] - ft_series).abs().mean(), places=4)
 
     def test__categorical_feature_transform_classifier_oof(self):
@@ -527,7 +525,6 @@ class TestFeatureTransformer(TestCase):
                                                  keep_dum_cols_with_nan=False)
         ft_series = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
         # ft_series.to_csv("test_classifier_proba.csv", index=True)
-        # print(ft_series)
         expected_res = pd.read_csv(get_path("test_classifier_proba.csv"), index_col=0)
 
         self.assertAlmostEqual(0, (expected_res - ft_series).abs().mean().mean(), places=8)
@@ -562,7 +559,6 @@ class TestFeatureTransformer(TestCase):
             val_X, val_Y = data_df.iloc[val_idx], target.iloc[val_idx]
             ft.fit(trn_X, trn_Y)
             ft_series = ft.transform(val_X)
-            # print(ft_series)
             self.assertAlmostEqual(0, (expected_res.iloc[i*10: i*10+10] - ft_series).abs().mean().mean(), places=8)
 
     def test_shadow_transformation(self):
@@ -629,7 +625,6 @@ class TestFeatureTransformer(TestCase):
         # Call feature transformer
         ft = FrequencyTransformation(feature_name="test", noise_level=0, shadow=True)
         # check resulting series and index
-        # print(ft_series)
         expected_list_1 = [0.4, 0.4, 0.2, 0.4, 0.2,
                                      0.4, 0.4, 0.2, 0.4, 0.4]
         expected_list_2 = [0.4, 0.3, 0.4, 0.3, 0.3,

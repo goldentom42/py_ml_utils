@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pandas as pd
 import numpy as np
 from py_ml_utils.dataset_transformer import FeatureTransformationPair, DatasetTransformer
@@ -59,7 +60,8 @@ class FeatureSelector(object):
             # Make sure there is at least 1 feature in the dataset
             nb_features = 1
         else:
-            nb_features = round(len(pairs) * self.max_features)
+            nb_features = int(round(len(pairs) * self.max_features))
+
         return [pairs[i] for i in idx[: nb_features]]
 
     @staticmethod
@@ -208,7 +210,7 @@ class FeatureSelector(object):
                probability=False,
                folds=None,
                maximize=True):
-        # type: (pd.DataFrame, pd.Series, [FeatureTransformationPair], Any, Any, bool, Any, bool) -> int
+        # type: (pd.DataFrame, pd.Series, [FeatureTransformationPair], Any, Any, bool, Any, bool) -> pd.DataFrame
 
         # Get start time
         self.start_time = time.time()
@@ -228,7 +230,6 @@ class FeatureSelector(object):
                                               "importance": 0.0})
 
         for run in range(self.max_runs):
-            # print("coucou")
             print("Run #%-5d @ %5.1f min" % (run + 1, (time.time() - self.start_time) / 60), end='')
 
             # Sample Features

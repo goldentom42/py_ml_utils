@@ -7,8 +7,9 @@ from collections import defaultdict
 class FeatureTransformationPair(object):
     # 2 use-cases : train and test? Logic should be held in dataset_transformer ?
     def __init__(self,
-                 transformer: FeatureTransformation,
-                 missing_inferer: MissingValueInferer = None):
+                 transformer,
+                 missing_inferer=None):
+        # type: (FeatureTransformation, Any) -> None
         self.inferer = missing_inferer
         self.transformer = transformer
 

@@ -2,11 +2,10 @@
 @author Olivier Grellier
 @email goldentom42@gmail.com
 """
+from __future__ import division
 import pandas as pd
 import numpy as np
 import warnings
-import inspect
-from py_ml_utils.missing_value_inferer import MissingValueInferer
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import Lasso, LogisticRegression
 
@@ -146,8 +145,9 @@ class InversePowerTransformation(FeatureTransformation):
 
     def _fit_special_process(self, data, target=None):
         # Check for zeros
-        if (data[self._name] == 0).sum() > 0:
-            warnings.warn(self._name + " series contain 0s. 1e-5 has been added before inversion.", category=UserWarning)
+        if pd.Series(data[self._name] == 0).sum() > 0:
+            warnings.warn(self._name + " series contain 0s. 1e-5 has been added before inversion.",
+                          category=UserWarning)
 
     def _transform_special_process(self, data):
         return 1 / np.power(data[self._name].replace(0, self.epsilon), self.power)
@@ -162,7 +162,7 @@ class RootTransformation(FeatureTransformation):
 
     def _fit_special_process(self, data, target=None):
         # Check for negative data
-        if (data[self._name] < 0).sum() > 0:
+        if pd.Series(data[self._name] < 0).sum() > 0:
             raise ValueError(self._name + " series contain negative values.")
 
     def _transform_special_process(self, data):
@@ -178,10 +178,10 @@ class LogTransformation(FeatureTransformation):
 
     def _fit_special_process(self, data, target=None):
         # Check for negative data
-        if (data[self._name] < 0).sum() > 0:
+        if pd.Series(data[self._name] < 0).sum() > 0:
             raise ValueError(self._name + " series contain negative values.")
         # Check for zeros
-        if (data[self._name] == 0).sum() > 0:
+        if pd.Series(data[self._name] == 0).sum() > 0:
             warnings.warn(self._name + " series contain 0s. 1e-5 has been added before log processing.",
                           category=UserWarning)
 
@@ -196,7 +196,6 @@ class OOFTransformation(FeatureTransformation):  # Or Object
     Folds should be kept outside of the transformation
     """
     def get_oof_data(self, data, target, folds):
-        # raise NotImplementedError()
         oof = np.zeros(len(data))
         ft_name = ""
         for trn_idx, val_idx in folds.split(data, target):
@@ -207,7 +206,7 @@ class OOFTransformation(FeatureTransformation):  # Or Object
             ft_name = ft_series.name
             oof[val_idx] = ft_series
         # Return with additional noise
-        return pd.Series(oof, name=ft_series.name, index=data.index)
+        return pd.Series(oof, name=ft_name, index=data.index)
 
 
 class TargetAverageTransformation(OOFTransformation):
@@ -611,4 +610,3 @@ class LabelEncodingTransformation(OOFTransformation):
             ft_series *= (1 + self.noise_level * np.random.randn(len(ft_series)))
 
         return ft_series
-

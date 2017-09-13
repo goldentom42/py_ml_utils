@@ -8,7 +8,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from itertools import combinations
 
 
-class TestFeatureTransformer(TestCase):
+class TestFeatureSelector(TestCase):
 
     def test_feature_selection_with_importances_log_loss(self):
         """ Test FeatureSelector with the iris dataset and log_loss metric
@@ -107,9 +107,6 @@ class TestFeatureTransformer(TestCase):
                            maximize=False)
 
         # scores.sort_values(by="score", ascending=True, inplace=True)
-
-        print(scores.sort_values(by="score", ascending=True).head())
-
         self.assertAlmostEqual(0.13078, scores.score.values[0], places=5)
         self.assertEqual("petal_length_*_petal_width", scores.feature.values[0])
 
