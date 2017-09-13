@@ -33,6 +33,10 @@ class FeatureTransformation(object):
     def process_name(self):
         return self._process_name
 
+    @property
+    def shadow(self):
+        return self._shadow
+
     def _fit_special_process(self, data, target=None):
         raise NotImplementedError()
 
