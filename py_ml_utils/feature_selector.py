@@ -3,6 +3,7 @@ import numpy as np
 from py_ml_utils.dataset_transformer import FeatureTransformationPair, DatasetTransformer
 from collections import defaultdict
 import time
+from typing import Any, Callable
 
 
 class FeatureSelector(object):
@@ -29,7 +30,9 @@ class FeatureSelector(object):
             raise ValueError("Only a list of FeatureTransformationPair or a FeatureTransformationPair can be provided.")
 
     @staticmethod
-    def _check_features_vs_dataframe(dataset: pd.DataFrame, pairs: [FeatureTransformationPair]):
+    def _check_features_vs_dataframe(dataset, pairs):
+        # type: (pd.DataFrame, [FeatureTransformationPair]) -> None
+
         # Check dataset type
         if "DataFrame" not in str(type(dataset)):
             raise ValueError("dataset must be provided as a pandas DataFrame")
@@ -43,7 +46,10 @@ class FeatureSelector(object):
 
         return None
 
-    def _sample_features(self, pairs: [FeatureTransformationPair]):
+    def _sample_features(self, pairs):
+        # type: ([FeatureTransformationPair]) -> [FeatureTransformationPair]
+        """ Randomly build a subsample of the transformations """
+
         # Create FeatureTransformationIndex
         idx = np.arange(len(pairs))
         # Shuffle the index
@@ -57,10 +63,13 @@ class FeatureSelector(object):
         return [pairs[i] for i in idx[: nb_features]]
 
     @staticmethod
-    def _create_dataset(dataset: pd.DataFrame,
-                        run_features: [FeatureTransformationPair],
-                        target: pd.Series=None,
+    def _create_dataset(dataset,
+                        run_features,
+                        target=None,
                         folds=None):
+        # type: (pd.DataFrame, [FeatureTransformationPair], pd.Series, Any) -> pd.DataFrame
+        """ Create dataset for the run using run_features transformations """
+
         dtf = DatasetTransformer()
         return dtf.transform(train=dataset,
                              test=None,
@@ -70,11 +79,12 @@ class FeatureSelector(object):
 
     @staticmethod
     def _get_score(estimator,
-                   dataset: pd.DataFrame,
-                   target: pd.Series,
+                   dataset,
+                   target,
                    folds=None,
                    metric=None,
                    probability=False):
+        # type: (Any, pd.DataFrame, pd.Series, Any, Callable, bool) -> (float, Any)
 
         # Init OOF data
         if probability:
@@ -114,7 +124,8 @@ class FeatureSelector(object):
             return metric(target, oof), None
 
     @staticmethod
-    def _update_scores(features_score, pairs: [FeatureTransformationPair], score, imp, run_cols, feat_to_cols):
+    def _update_scores(features_score, pairs, score, imp, run_cols, feat_to_cols):
+        # type: (defaultdict, [FeatureTransformationPair], float, Any, Any, dict) -> defaultdict
         """
         :param features_score: object containing all features' scores and importances (if available)
         :param pairs: set of features used during the current run
@@ -186,19 +197,18 @@ class FeatureSelector(object):
         full_data["importance"] = importances / (np.sum(importances) + 1e-7)
         full_data["occurences"] = counts
 
-        full_data.to_csv("feature_scores.csv", index=False, sep=";")
-
         return full_data.sort_values(by="score", ascending=(not maximize))
 
     def select(self,
-               dataset: pd.DataFrame = None,
-               target: pd.Series = None,
-               pairs: [FeatureTransformationPair] = [],
+               dataset=None,
+               target=None,
+               pairs=[],
                estimator=None,
                metric=None,
                probability=False,
                folds=None,
                maximize=True):
+        # type: (pd.DataFrame, pd.Series, [FeatureTransformationPair], Any, Any, bool, Any, bool) -> int
 
         # Get start time
         self.start_time = time.time()
