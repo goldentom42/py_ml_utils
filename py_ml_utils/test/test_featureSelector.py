@@ -110,7 +110,7 @@ class TestFeatureTransformer(TestCase):
 
         print(scores.sort_values(by="score", ascending=True).head())
 
-        self.assertAlmostEqual(0.1307828, scores.score.values[0], places=6)
+        self.assertAlmostEqual(0.13078, scores.score.values[0], places=5)
         self.assertEqual("petal_length_*_petal_width", scores.feature.values[0])
 
     def test_feature_selection_without_importances_accuracy(self):
