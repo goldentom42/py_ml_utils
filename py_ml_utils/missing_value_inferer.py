@@ -25,6 +25,18 @@ class MissingValueInferer(object):
         return self._infer_specific_process()
 
 
+class ConstantMissingValueInferer(MissingValueInferer):
+    _process_name = "Constant"
+
+    def __init__(self, feature_name=None, missing_value=np.nan, replacement=-1):
+        # Call super
+        super(ConstantMissingValueInferer, self).__init__(feature_name, missing_value)
+        self.replacer = replacement
+
+    def _infer_specific_process(self):
+        return self.series.fillna(self.replacer)
+
+
 class MeanMissingValueInferer(MissingValueInferer):
     _process_name = "MeanInferer"
 

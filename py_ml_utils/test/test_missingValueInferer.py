@@ -6,6 +6,14 @@ from py_ml_utils.missing_value_inferer import *
 
 class TestMissingValueInferer(TestCase):
 
+    def test_infer_missing_value_constant(self):
+        """ Test MeanMissingValueInferer, replacing np.nan by mean """
+        series = pd.Series([1, 0, 1, 0, 1, 0, 1, 1, 0, 1, np.nan, np.nan])
+        mvi = ConstantMissingValueInferer(feature_name="test", missing_value=np.nan, replacement=-1)
+        series = mvi.infer(series.to_frame(name="test"))
+        self.assertEqual(series.values[10], -1)
+        self.assertEqual(series.values[11], -1)
+
     def test_infer_missing_value_mean(self):
         """ Test MeanMissingValueInferer, replacing np.nan by mean """
         series = pd.Series([1, 0, 1, 0, 1, 0, 1, 1, 0, 1, np.nan, np.nan])
