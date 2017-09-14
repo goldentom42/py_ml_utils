@@ -20,3 +20,29 @@ from .missing_value_inferer import (MeanMissingValueInferer,
                                     MostFrequentMissingValueInferer,
                                     GroupByMissingValueInferer)
 from .greedy_optimizer import GreedyOptimizer
+
+__all__ = [
+    "FeatureSelector",
+    "FeatureTransformationPair",
+    "IdentityTransformation",
+    "ShadowTransformation",
+    "ExpoTransformation",
+    "PowerTransformation",
+    "InversePowerTransformation",
+    "RootTransformation",
+    "LogTransformation",
+    "TargetAverageTransformation",
+    "FrequencyTransformation",
+    "DummyTransformation",
+    "RegressorTransformation",
+    "CategoricalClassifierTransformation",
+    "ClassifierTransformation",
+    "CategoricalClassifierTransformation",
+    "LabelEncodingTransformation",
+    "DatasetTransformer",
+    "MeanMissingValueInferer",
+    "MedianMissingValueInferer",
+    "MostFrequentMissingValueInferer",
+    "GroupByMissingValueInferer",
+    "GreedyOptimizer"
+]

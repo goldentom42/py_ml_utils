@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from py_ml_utils.feature_transformer import *
-from py_ml_utils.dataset_transformer import FeatureTransformationPair
+# from py_ml_utils.feature_transformer import *
+# from py_ml_utils.dataset_transformer import FeatureTransformationPair
 
 # TODO: would be nice to have a history of scores rounds as a column and features as a row
 # Along with best score.
@@ -167,7 +167,6 @@ class GreedyOptimizer(object):
         # Transform dataset
         trans_df = pd.DataFrame()
         for pair in features:
-            ft = pair.transformer
 
             # Check if there is a missing inference required
             # TODO I think this should be in FeaturePair
@@ -195,7 +194,7 @@ class GreedyOptimizer(object):
         # Go through folds to compute score
         for trn_idx, val_idx in folds.split(trans_df, target):
             trn_x, trn_y = trans_df.iloc[trn_idx], target.iloc[trn_idx]
-            val_x, val_y = trans_df.iloc[val_idx], target.iloc[val_idx]
+            val_x = trans_df.iloc[val_idx]
 
             if trn_x.shape[1] <= 1:
                 estimator.fit(trn_x.values.reshape(-1, 1), trn_y.values)

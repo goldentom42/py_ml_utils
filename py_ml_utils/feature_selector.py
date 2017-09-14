@@ -101,7 +101,7 @@ class FeatureSelector(object):
         for trn_idx, val_idx in folds.split(dataset, target):
             # Split data into training and validation sets
             trn_x, trn_y = dataset.iloc[trn_idx], target.iloc[trn_idx]
-            val_x, val_y = dataset.iloc[val_idx], target.iloc[val_idx]
+            val_x = dataset.iloc[val_idx]
 
             # Fit estimator
             if trn_x.shape[1] <= 1:

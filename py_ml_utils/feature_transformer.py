@@ -199,14 +199,20 @@ class OOFTransformation(FeatureTransformation):  # Or Object
         oof = np.zeros(len(data))
         ft_name = ""
         for trn_idx, val_idx in folds.split(data, target):
-            trn_X, trn_Y = data[[self._name]].iloc[trn_idx], target.iloc[trn_idx]
-            val_X, val_Y = data[[self._name]].iloc[val_idx], target.iloc[val_idx]
-            self.fit(data=trn_X, target=trn_Y)
-            ft_series = self.transform(data=val_X)
+            trn_x, trn_y = data[[self._name]].iloc[trn_idx], target.iloc[trn_idx]
+            val_x = data[[self._name]].iloc[val_idx]
+            self.fit(data=trn_x, target=trn_y)
+            ft_series = self.transform(data=val_x)
             ft_name = ft_series.name
             oof[val_idx] = ft_series
         # Return with additional noise
         return pd.Series(oof, name=ft_name, index=data.index)
+
+    def _fit_special_process(self, data, target=None):
+        raise NotImplementedError()
+
+    def _transform_special_process(self, data):
+        raise NotImplementedError()
 
 
 class TargetAverageTransformation(OOFTransformation):
@@ -324,15 +330,14 @@ class DummyTransformation(OOFTransformation):
         """
         # raise NotImplementedError()
         oof = pd.DataFrame()
-        idx = data.index
         for trn_idx, val_idx in folds.split(data, target):
             # Create data partitions
-            trn_X, trn_Y = data[[self._name]].iloc[trn_idx], target.iloc[trn_idx]
-            val_X, val_Y = data[[self._name]].iloc[val_idx], target.iloc[val_idx]
+            trn_x, trn_y = data[[self._name]].iloc[trn_idx], target.iloc[trn_idx]
+            val_x = data[[self._name]].iloc[val_idx]
             # Fit has no effect
-            self.fit(data=trn_X, target=trn_Y)
-            val_dummies = self.transform(data=val_X)
-            val_dummies.index = val_X.index
+            self.fit(data=trn_x, target=trn_y)
+            val_dummies = self.transform(data=val_x)
+            val_dummies.index = val_x.index
             oof = pd.concat([oof, val_dummies], axis=0)
 
         # At this point NaN could be replaced by zeros and this is the standard dummy transform
@@ -341,10 +346,10 @@ class DummyTransformation(OOFTransformation):
             return oof.fillna(0)
         else:
             # Find cols with NaN
-            cols_with_NaN = oof.isnull().sum(axis=0) > 0
-            cols_with_NaN = list(cols_with_NaN[cols_with_NaN].index.values)
+            cols_with_nan = oof.isnull().sum(axis=0) > 0
+            cols_with_nan = list(cols_with_nan[cols_with_nan].index.values)
             # Drop these columns
-            return oof.drop(cols_with_NaN, axis=1)
+            return oof.drop(cols_with_nan, axis=1)
 
 
 class RegressorTransformation(OOFTransformation):
@@ -423,7 +428,7 @@ class CategoricalRegressorTransformation(OOFTransformation):
 
     def _transform_special_process(self, data):
         if self.oof_process:
-            ft_series = pd.Series(self.regressor.predict(data),
+            ft_series = pd.Series(self.regressor.predict(X=data),
                                   name=self._name,
                                   index=data.index)
         else:
@@ -447,10 +452,10 @@ class CategoricalRegressorTransformation(OOFTransformation):
         # raise NotImplementedError()
         oof = np.zeros(len(data))
         for trn_idx, val_idx in folds.split(dum_data, target):
-            trn_X, trn_Y = dum_data.iloc[trn_idx], target.iloc[trn_idx]
-            val_X, val_Y = dum_data.iloc[val_idx], target.iloc[val_idx]
-            self.fit(data=trn_X, target=trn_Y)
-            oof[val_idx] = self.transform(data=val_X)
+            trn_x, trn_y = dum_data.iloc[trn_idx], target.iloc[trn_idx]
+            val_x = dum_data.iloc[val_idx]
+            self.fit(data=trn_x, target=trn_y)
+            oof[val_idx] = self.transform(data=val_x)
 
         self.oof_process = False
 
@@ -568,13 +573,13 @@ class CategoricalClassifierTransformation(OOFTransformation):
         else:
             oof = np.zeros(len(data))
         for trn_idx, val_idx in folds.split(dum_data, target):
-            trn_X, trn_Y = dum_data.iloc[trn_idx], target.iloc[trn_idx]
-            val_X, val_Y = dum_data.iloc[val_idx], target.iloc[val_idx]
-            self.fit(data=trn_X, target=trn_Y)
+            trn_x, trn_y = dum_data.iloc[trn_idx], target.iloc[trn_idx]
+            val_x = dum_data.iloc[val_idx]
+            self.fit(data=trn_x, target=trn_y)
             if self.probabilities:
-                oof[val_idx, :] = self.transform(data=val_X)
+                oof[val_idx, :] = self.transform(data=val_x)
             else:
-                oof[val_idx] = self.transform(data=val_X)
+                oof[val_idx] = self.transform(data=val_x)
 
         self.oof_process = False
 
