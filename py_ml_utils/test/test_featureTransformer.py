@@ -16,19 +16,24 @@ class TestFeatureTransformer(TestCase):
     """
     def test__feature_transform_identity(self):
         """ Test IdentityTransformation """
-        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]))
+        idx = np.arange(20)
+        np.random.shuffle(idx)
+        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]), index=idx)
         ft = IdentityTransformation(feature_name="test")
         ft_series = ft.fit_transform(data=pd.DataFrame(series, columns=["test"]))
-        # ft_series = ft._feature_transform_same(series=series)
         self.assertAlmostEqual(0, np.sum(np.abs(series - ft_series)))
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(series.index))))
 
     def test__feature_transform_square(self):
         """ Test PowerTransformation with power 2 """
-        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]))
+        idx = np.arange(20)
+        np.random.shuffle(idx)
+        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]), index=idx)
         ft = PowerTransformation(feature_name="test", power=2)
         ft_series = ft.fit_transform(data=pd.DataFrame(series, columns=["test"]))
         residual = (np.power(series,  2) - ft_series).abs().sum()
         self.assertAlmostEqual(0, residual)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(series.index))))
 
     def test__feature_transform_power3(self):
         """ Test PowerTransformation with power 3 """
@@ -162,6 +167,44 @@ class TestFeatureTransformer(TestCase):
                                       0.25, 1./3., 0.25, 2./3., 2./3.,
                                       2./3., 0.25, 1./3., 2./3., 0.25], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
+
+    def test__feature_transform_mean_average_min_sample_leaf(self):
+        """ Test TargetAverageTransformation fit/transform process, mean average, min_samples_leaf """
+        # Create series and target
+        len_series = 100
+        np.random.seed(18)
+        series = pd.Series(np.random.choice(["A", "B", "C", "D", "E", "F"],
+                                            len_series,
+                                            p=[0.35, 0.35, 0.10, 0.10, 0.05, 0.05]),
+                           name='category')
+        print(series.value_counts())
+        target = pd.Series(np.random.choice([0, 1], len_series, p=[0.7, 0.3]), name='target')
+        # Create shuffled index
+        idx = np.arange(len_series)
+        np.random.shuffle(idx)
+        series.index = idx
+        target.index = idx
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEAN,
+                                         min_samples_leaf=5,
+                                         noise_level=0)
+        ft_series = ft.fit_transform(data=series.to_frame(name="test"), target=target)
+
+        e_mean = target[series == "E"].mean()
+        e_results = np.ones(len(target[series == "E"])) * e_mean
+        f_mean = target[series == "F"].mean()
+        f_results = np.ones(len(target[series == "F"])) * f_mean
+        e_f_mean = target[(series == "E") | (series == "F")].mean()
+        e_f_results = np.ones(len(target[(series == "E") | (series == "F")])) * e_f_mean
+        # print(e_f_results)
+        # print(pd.concat([series, target, ft_series], axis=1))
+        self.assertAlmostEqual(0, np.sum(np.abs(ft_series.index.values - series.index.values)))
+        self.assertNotAlmostEqual(0, np.sum(np.abs(ft_series.loc[series == "F"].values - f_results)))
+        self.assertNotAlmostEqual(0, np.sum(np.abs(ft_series.loc[series == "E"].values - e_results)))
+        e_f_ft_series = ft_series.loc[(series == "E") | (series == "F")]
+        self.assertAlmostEqual(0, np.sum(np.abs(e_f_ft_series.values - e_f_results)))
 
     def test__feature_transform_median_average(self):
         """ Test TargetAverageTransformation for Out Of Fold and median average, tests output values and index """
@@ -188,6 +231,7 @@ class TestFeatureTransformer(TestCase):
                                       0.0, 0.0, 0.0, 1.0, 1.0,
                                       1.0, 0.0, 0.0, 1.0, 0.0], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
     def test__feature_transform_to_frequency(self):
         """ Test FrequencyTransformation OOF data computation """
@@ -212,6 +256,7 @@ class TestFeatureTransformer(TestCase):
                                       0.4, 0.3, 0.4, 0.3, 0.3,
                                       0.3, 0.4, 0.3, 0.3, 0.4], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
     def test__feature_transform_to_frequency_with_nan(self):
         """ Test FrequencyTransformation OOF data computation, ensures frequency is also computed for NaNs
@@ -238,6 +283,7 @@ class TestFeatureTransformer(TestCase):
                                       0.4, 0.3, 0.4, 0.3, 0.3,
                                       0.3, 0.4, 0.3, 0.3, 0.4], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
         self.assertEqual("test_freq", ft_series.name)
 
     def test__feature_transform_to_frequency_fit_transform(self):
@@ -261,6 +307,7 @@ class TestFeatureTransformer(TestCase):
         expected_results = pd.Series([0.4, 0.3, 0.4, 0.3, 0.3,
                                       0.3, 0.4, 0.3, 0.3, 0.4], index=idx[10:])
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
         self.assertEqual("test_freq", ft_series.name)
 
     def test__feature_transform_to_frequency_with_noise(self):
@@ -308,6 +355,7 @@ class TestFeatureTransformer(TestCase):
                                       1, 2, 1, 0, 0,
                                       0, 1, 2, 0, 1], index=idx)
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
     def test__feature_transform_label_encoding_fit_transform(self):
         """ Test LabelEncodingTransformation fit/transform process, values and index are tested """
@@ -331,6 +379,7 @@ class TestFeatureTransformer(TestCase):
         expected_results = pd.Series([1, 2, 1, 0, 0,
                                       0, 1, 2, 0, 1], index=idx[10:])
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
     def test__feature_transform_oof_dummies(self):
         """ Test DummyTransformation OOF process. Values and Index are tested """
@@ -355,6 +404,7 @@ class TestFeatureTransformer(TestCase):
         expected_results = pd.read_csv(get_path("test_dummies_01.csv"), index_col=0)
         cols = ["test_A", "test_B", "test_C", "test_D"]
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(full_frame.index) - np.array(expected_results.index))))
 
     def test__feature_transform_oof_dummies_drop_nan(self):
         """ Test DummyTransformation with option to drop NaN values """
@@ -380,6 +430,7 @@ class TestFeatureTransformer(TestCase):
         self.assertEqual(list(ft_frame.columns), ["test_A", "test_B", "test_C"])
         cols = ft_frame.columns
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(full_frame.index) - np.array(expected_results.index))))
 
     def test__feature_transform_oof_dummies_drop_level(self):
         """ Test DummyTransformation with drop_level values are drop below this frequency """
@@ -405,6 +456,7 @@ class TestFeatureTransformer(TestCase):
         self.assertEqual(list(ft_frame.columns), ["test_A", "test_B", "test_other"])
         cols = ft_frame.columns
         self.assertAlmostEqual(0, (full_frame[cols] - expected_results[cols]).abs().sum().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(full_frame.index) - np.array(expected_results.index))))
 
     # def test__numerical_feature_transform_regressor(self):
     #     self.fail()
@@ -431,12 +483,13 @@ class TestFeatureTransformer(TestCase):
                                                 drop_level=0.25,
                                                 keep_dum_cols_with_nan=False)
         ft_series = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
-        expected_res = [0.2375, 0.2375, 0.0500, 0.2375, 0.0500,
-                        0.2375, 0.2375, 0.0500, 0.2375, 0.2375,
-                        0.2750, 0.3333, 0.2750, 0.6333, 0.6333,
-                        0.6333, 0.2750, 0.3333, 0.6333, 0.2750]
+        expected_res = pd.Series([0.2375, 0.2375, 0.0500, 0.2375, 0.0500,
+                                  0.2375, 0.2375, 0.0500, 0.2375, 0.2375,
+                                  0.2750, 0.3333, 0.2750, 0.6333, 0.6333,
+                                  0.6333, 0.2750, 0.3333, 0.6333, 0.2750], index=idx)
 
         self.assertAlmostEqual(0, (expected_res - ft_series).abs().mean(), places=4)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_res.index))))
 
     def test__categorical_feature_transform_regressor_drop_level_problem(self):
         """ Test CategoricalRegressorTransformation OOF process, categorical feature is moved to dummies

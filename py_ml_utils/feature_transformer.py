@@ -219,38 +219,100 @@ class TargetAverageTransformation(OOFTransformation):
 
     MEAN = 'MEAN'
     MEDIAN = 'MEDIAN'
+    STD = 'STD'
+    SKEWNESS = 'SKEW'
+    KURTOSIS = 'KURT'
+    ALL = [MEAN, MEDIAN, STD, SKEWNESS, KURTOSIS]
 
-    def __init__(self, feature_name=None, average=MEAN, noise_level=0):
+    def __init__(self, feature_name=None, average=MEAN, min_samples_leaf=1, noise_level=0):
+
+        if average not in self.ALL:
+            raise ValueError("average_type must be one of ", self.ALL)
+
         # Call super
         super(TargetAverageTransformation, self).__init__(feature_name)
         self._process_name = "Target_Average_" + average
         # Keep average type
         self.average = average
         self.noise_level = noise_level
+        self.min_samples_leaf = min_samples_leaf
         # Place-holder for averages
         self.averages = None
         self.full_average = None
         self.target_name = None
 
     def _fit_special_process(self, data, target=None):
-        # Compute averages
-        if self.average == self.MEAN:
-            self.averages = pd.concat([data[self._name], target], axis=1).groupby(by=self._name).mean()[target.name]
-            self.full_average = target.mean()
-        elif self.average == self.MEDIAN:
-            self.averages = pd.concat([data[self._name], target], axis=1).groupby(by=self._name).median()[target.name]
-            self.full_average = target.median()
-        else:
-            raise ValueError("average_type must be one of 'MEAN' of 'MEDIAN'")
 
+        # Check counts
+        if self.min_samples_leaf > 1:
+            # Cap counts to min_samples_leaf
+            counts = data[self._name].value_counts().reset_index().rename(
+                columns={"index": self._name, self._name: "counts"}
+            )
+            counts["new_value"] = counts[self._name]
+            counts.loc[counts.counts < self.min_samples_leaf, "new_value"] = "other"
+            # Now merge things back into the original data
+            value_map = pd.merge(pd.concat([data[self._name], target], axis=1),
+                                counts[[self._name, "new_value"]],
+                                on=self._name, how="left")
+            value_map[self._name] = value_map["new_value"]
+            new_data = value_map[[f for f in value_map.columns if f != "new_value"]]
+
+            # compute averages
+            if self.average == self.MEAN:
+                averages = new_data.groupby(by=self._name).mean()[target.name]
+                self.full_average = target.mean()
+            elif self.average == self.MEDIAN:
+                averages = new_data.groupby(by=self._name).median()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.STD:
+                averages = new_data.groupby(by=self._name).std()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.SKEWNESS:
+                averages = new_data.groupby(by=self._name).skewness()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.KURTOSIS:
+                averages = new_data.groupby(by=self._name).kurtosis()[target.name]
+                self.full_average = target.median()
+
+            self.averages = pd.merge(left=counts, left_on="new_value",
+                                     right=averages.reset_index(), right_on=self._name,
+                                     how="left", suffixes=('', '_avg'))[[self._name, target.name]]
+            self.averages.set_index(self._name, inplace=True)
+
+        else:
+            new_data = pd.concat([data[self._name], target], axis=1)
+            if self.average == self.MEAN:
+                self.averages = new_data.groupby(by=self._name).mean()[target.name]
+                self.full_average = target.mean()
+            elif self.average == self.MEDIAN:
+                self.averages = new_data.groupby(by=self._name).median()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.STD:
+                self.averages = new_data.groupby(by=self._name).std()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.SKEWNESS:
+                self.averages = new_data.groupby(by=self._name).skew()[target.name]
+                self.full_average = target.median()
+            elif self.average == self.KURTOSIS:
+                self.averages = new_data.groupby(by=self._name).kurtosis()[target.name]
+                self.full_average = target.median()
+
+        # register target feature name
         self.target_name = target.name
 
     def _transform_special_process(self, data):
+        # Indexing is tatally lost by pd.merge so keep it now
+        idx = data.index
+        # First merge the data
         ft_series = pd.merge(
             pd.DataFrame(data[self._name]),
             self.averages.reset_index().rename(columns={'index': self.target_name, self.target_name: 'average'}),
             on=self._name,
             how='left')['average'].rename(self._name + '_' + self.average.lower()).fillna(self.full_average)
+
+        # bring back the index
+        ft_series.index = idx
 
         return ft_series * (1 + self.noise_level * np.random.randn(len(ft_series)))
 
