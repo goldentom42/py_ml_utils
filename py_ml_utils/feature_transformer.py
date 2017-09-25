@@ -8,6 +8,7 @@ import numpy as np
 import warnings
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import Lasso, LogisticRegression
+from scipy.stats import kurtosis
 
 
 class FeatureTransformation(object):
@@ -267,13 +268,15 @@ class TargetAverageTransformation(OOFTransformation):
                 self.full_average = target.median()
             elif self.average == self.STD:
                 averages = new_data.groupby(by=self._name).std()[target.name]
-                self.full_average = target.median()
+                self.full_average = target.std()
             elif self.average == self.SKEWNESS:
-                averages = new_data.groupby(by=self._name).skewness()[target.name]
-                self.full_average = target.median()
+                averages = new_data.groupby(by=self._name).skew()[target.name]
+                self.full_average = target.skew()
             elif self.average == self.KURTOSIS:
-                averages = new_data.groupby(by=self._name).kurtosis()[target.name]
-                self.full_average = target.median()
+                # Kurtosis does not appear to be available on DataFrameGroupby
+                # so we need to go through a lambda function
+                averages = new_data.groupby(by=self._name).agg({target.name: lambda x: kurtosis(x)})[target.name]
+                self.full_average = target.kurtosis()
 
             self.averages = pd.merge(left=counts, left_on="new_value",
                                      right=averages.reset_index(), right_on=self._name,
@@ -290,13 +293,15 @@ class TargetAverageTransformation(OOFTransformation):
                 self.full_average = target.median()
             elif self.average == self.STD:
                 self.averages = new_data.groupby(by=self._name).std()[target.name]
-                self.full_average = target.median()
+                self.full_average = target.std()
             elif self.average == self.SKEWNESS:
                 self.averages = new_data.groupby(by=self._name).skew()[target.name]
-                self.full_average = target.median()
+                self.full_average = target.skew()
             elif self.average == self.KURTOSIS:
-                self.averages = new_data.groupby(by=self._name).kurtosis()[target.name]
-                self.full_average = target.median()
+                # Kurtosis does not appear to be available on DataFrameGroupby
+                # so we need to go through a lambda function
+                self.averages = new_data.groupby(by=self._name).agg({target.name: lambda x: kurtosis(x)})[target.name]
+                self.full_average = target.kurtosis()
 
         # register target feature name
         self.target_name = target.name
