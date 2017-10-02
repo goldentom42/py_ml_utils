@@ -194,13 +194,14 @@ class TestFeatureTransformer(TestCase):
         # Create series and target
         len_series = 20
         min_leaves = 7
+        p_smooth = 2
         np.random.seed(18)
         trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]), name='category')
         target = pd.Series(np.random.choice([0, 1, 2], len_series, p=[0.4, 0.3, 0.3]), name='target')
         # Call feature transformer
         ft = TargetAverageTransformation(feature_name="test",
                                          average=TargetAverageTransformation.MEAN,
-                                         smoothing=True,
+                                         smoothing=p_smooth,
                                          min_samples_leaf=min_leaves,
                                          noise_level=0)
         ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
@@ -209,7 +210,8 @@ class TestFeatureTransformer(TestCase):
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
         full = pd.concat([counts, averages], axis=1)
         full.columns = ["count", "mean"]
-        smoothing = np.exp( - full["count"] / min_leaves)
+        # Compute s-shaped smoothing
+        smoothing = 1 / (1 + np.exp( - (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
@@ -226,13 +228,14 @@ class TestFeatureTransformer(TestCase):
         # Create series and target
         len_series = 20
         min_leaves = 10
+        p_smooth = 2
         np.random.seed(18)
         trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]), name='category')
         target = pd.Series(np.random.choice([0, 1, 2, 3], len_series, p=[0.25, 0.25, 0.25, 0.25]), name='target')
         # Call feature transformer
         ft = TargetAverageTransformation(feature_name="test",
                                          average=TargetAverageTransformation.MEDIAN,
-                                         smoothing=True,
+                                         smoothing=p_smooth,
                                          min_samples_leaf=min_leaves,
                                          noise_level=0)
         ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
@@ -242,7 +245,8 @@ class TestFeatureTransformer(TestCase):
         averages = pd.concat([trn_series, target], axis=1).groupby("category").median()
         full = pd.concat([counts, averages], axis=1)
         full.columns = ["count", "median"]
-        smoothing = np.exp(- full["count"] / min_leaves)
+        # compute s-shaped smoothing
+        smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.median() * smoothing + full["median"] * (1 - smoothing)
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
@@ -258,6 +262,7 @@ class TestFeatureTransformer(TestCase):
         # Create series and target
         len_series = 20
         min_leaves = 2
+        p_smooth = 2
         np.random.seed(18)
         trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]),
                                name='category')
@@ -271,7 +276,7 @@ class TestFeatureTransformer(TestCase):
         # Call feature transformer
         ft = TargetAverageTransformation(feature_name="test",
                                          average=TargetAverageTransformation.MEAN,
-                                         smoothing=True,
+                                         smoothing=p_smooth,
                                          min_samples_leaf=min_leaves,
                                          label_encoding=True,
                                          noise_level=0)
@@ -282,7 +287,8 @@ class TestFeatureTransformer(TestCase):
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
         full = pd.concat([counts, averages], axis=1)
         full.columns = ["count", "mean"]
-        smoothing = np.exp(- full["count"] / min_leaves)
+        # compute s-shaped smoothing
+        smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
@@ -301,6 +307,7 @@ class TestFeatureTransformer(TestCase):
         # Create series and target
         len_series = 20
         min_leaves = 4
+        p_smooth = 2
         np.random.seed(18)
         trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]),
                                name='category')
@@ -320,7 +327,7 @@ class TestFeatureTransformer(TestCase):
         # Call feature transformer
         ft = TargetAverageTransformation(feature_name="test",
                                          average=TargetAverageTransformation.MEAN,
-                                         smoothing=True,
+                                         smoothing=p_smooth,
                                          min_samples_leaf=min_leaves,
                                          label_encoding=True,
                                          noise_level=0)
@@ -332,7 +339,8 @@ class TestFeatureTransformer(TestCase):
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
         full = pd.concat([counts, averages], axis=1)
         full.columns = ["count", "mean"]
-        smoothing = np.exp(- full["count"] / min_leaves)
+        # compute s-shaped smoothing
+        smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
         # check resulting series and index
         trn_expected_results = pd.merge(left=trn_series.to_frame(name="test"),
