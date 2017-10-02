@@ -14,6 +14,26 @@ class TestFeatureTransformer(TestCase):
     """
     Set of tests for FeatureTransformation objects
     """
+    def test_feature_transform_properties(self):
+        """ Test feature transformer properties """
+        ft = IdentityTransformation(feature_name="test", shadow=True)
+        self.assertEqual(ft.feature_name, "test")
+        self.assertEqual(ft.shadow, True)
+        self.assertEqual(ft.process_name, "Identity")
+
+    def test_feature_transform_not_fittedError(self):
+        """ Test feature transformer properties """
+        ft = IdentityTransformation(feature_name="test", shadow=True)
+        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]))
+        self.assertRaises(NotFittedError, ft.transform, data=pd.DataFrame(series, columns=["test"]))
+
+
+    def test_feature_transform_feature_not_in_dataset_error(self):
+        """ Test feature transformer properties """
+        ft = IdentityTransformation(feature_name="test", shadow=True)
+        series = pd.Series(np.random.choice(3, 20, p=[0.40, 0.40, 0.20]))
+        self.assertRaises(ValueError, ft.fit, data=pd.DataFrame(series, columns=["notindataset"]))
+
     def test__feature_transform_identity(self):
         """ Test IdentityTransformation """
         idx = np.arange(20)
@@ -169,6 +189,169 @@ class TestFeatureTransformer(TestCase):
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
         self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
+    def test__feature_transform_mean_average_smoothing(self):
+        """ Test TargetAverageTransformation for fit/transform and mean average with smoothing """
+        # Create series and target
+        len_series = 20
+        min_leaves = 7
+        np.random.seed(18)
+        trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]), name='category')
+        target = pd.Series(np.random.choice([0, 1, 2], len_series, p=[0.4, 0.3, 0.3]), name='target')
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEAN,
+                                         smoothing=True,
+                                         min_samples_leaf=min_leaves,
+                                         noise_level=0)
+        ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
+        # Reproducing smoothing procedure
+        counts = trn_series.value_counts()
+        averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
+        full = pd.concat([counts, averages], axis=1)
+        full.columns = ["count", "mean"]
+        smoothing = np.exp( - full["count"] / min_leaves)
+        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        # check resulting series and index
+        expected_results = pd.merge(left=trn_series.to_frame(name="test"),
+                                    right=full.reset_index(),
+                                    left_on="test",
+                                    right_on="index",
+                                    how="left")["smoothed_avg"]
+        # print(pd.concat([trn_series, target, ft_series, expected_results], axis=1))
+        self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
+
+    def test__feature_transform_median_average_smoothing(self):
+        """ Test TargetAverageTransformation for fit/transform and mean average with smoothing """
+        # Create series and target
+        len_series = 20
+        min_leaves = 10
+        np.random.seed(18)
+        trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]), name='category')
+        target = pd.Series(np.random.choice([0, 1, 2, 3], len_series, p=[0.25, 0.25, 0.25, 0.25]), name='target')
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEDIAN,
+                                         smoothing=True,
+                                         min_samples_leaf=min_leaves,
+                                         noise_level=0)
+        ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
+
+        # Reproducing smoothing procedure
+        counts = trn_series.value_counts()
+        averages = pd.concat([trn_series, target], axis=1).groupby("category").median()
+        full = pd.concat([counts, averages], axis=1)
+        full.columns = ["count", "median"]
+        smoothing = np.exp(- full["count"] / min_leaves)
+        full["smoothed_avg"] = target.median() * smoothing + full["median"] * (1 - smoothing)
+        # check resulting series and index
+        expected_results = pd.merge(left=trn_series.to_frame(name="test"),
+                                    right=full.reset_index(),
+                                    left_on="test",
+                                    right_on="index",
+                                    how="left")["smoothed_avg"]
+        self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
+
+    def test__feature_transform_mean_average_label_encoding(self):
+        """ Test TargetAverageTransformation for Out Of Fold and mean average with label encoding """
+        # Create series and target
+        len_series = 20
+        min_leaves = 2
+        np.random.seed(18)
+        trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]),
+                               name='category')
+        target = pd.Series(np.random.choice([0, 1], len_series, p=[0.7, 0.3]), name='target')
+        # Create shuffled index
+        idx = np.arange(len_series)
+        np.random.shuffle(idx)
+        trn_series.index = idx
+        target.index = idx
+
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEAN,
+                                         smoothing=True,
+                                         min_samples_leaf=min_leaves,
+                                         label_encoding=True,
+                                         noise_level=0)
+        ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
+
+        # Reproducing smoothing procedure
+        counts = trn_series.value_counts()
+        averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
+        full = pd.concat([counts, averages], axis=1)
+        full.columns = ["count", "mean"]
+        smoothing = np.exp(- full["count"] / min_leaves)
+        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        # check resulting series and index
+        expected_results = pd.merge(left=trn_series.to_frame(name="test"),
+                                    right=full.reset_index(),
+                                    left_on="test",
+                                    right_on="index",
+                                    how="left")["smoothed_avg"]
+        lbl_res, _ = pd.factorize(expected_results, sort=True)
+        expected_results = pd.Series(lbl_res, index=idx)
+
+        self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
+
+    def test__feature_transform_mean_average_label_encoding_and_validation(self):
+        """ Test TargetAverageTransformation for Out Of Fold and mean average with label encoding """
+        # Create series and target
+        len_series = 20
+        min_leaves = 4
+        np.random.seed(18)
+        trn_series = pd.Series(np.random.choice(["A", "B", "C", "D"], len_series, p=[0.4, 0.3, .2, 0.10]),
+                               name='category')
+        val_series = pd.Series(np.random.choice(["A", "B", "C", "E"], len_series, p=[0.4, 0.3, .2, 0.10]),
+                               name='category')
+
+        target = pd.Series(np.random.choice([0, 1], len_series, p=[0.7, 0.3]), name='target')
+        # Create shuffled index
+        idx = np.arange(len_series)
+        val_idx = np.arange(len_series)
+        np.random.shuffle(idx)
+        np.random.shuffle(val_idx)
+        trn_series.index = idx
+        val_series.index = val_idx
+        target.index = idx
+
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEAN,
+                                         smoothing=True,
+                                         min_samples_leaf=min_leaves,
+                                         label_encoding=True,
+                                         noise_level=0)
+        ft_trn_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
+        ft_val_series = ft.transform(data=val_series.to_frame(name="test"))
+
+        # Reproducing smoothing procedure and factorization
+        counts = trn_series.value_counts()
+        averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
+        full = pd.concat([counts, averages], axis=1)
+        full.columns = ["count", "mean"]
+        smoothing = np.exp(- full["count"] / min_leaves)
+        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        # check resulting series and index
+        trn_expected_results = pd.merge(left=trn_series.to_frame(name="test"),
+                                        right=full.reset_index(),
+                                        left_on="test",
+                                        right_on="index",
+                                        how="left")["smoothed_avg"]
+        val_expected_results = pd.merge(left=val_series.to_frame(name="test"),
+                                        right=full.reset_index(),
+                                        left_on="test",
+                                        right_on="index",
+                                        how="left")["smoothed_avg"]
+        lbl_res, indexer = pd.factorize(trn_expected_results, sort=True)
+        lbl_res = indexer.get_indexer(val_expected_results)
+        expected_results = pd.Series(lbl_res, index=val_idx)
+
+        self.assertAlmostEqual(0, (ft_val_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_val_series.index) - np.array(expected_results.index))))
+
     def test__feature_transform_mean_average_min_sample_leaf(self):
         """ Test TargetAverageTransformation fit/transform process, mean average, min_samples_leaf """
         # Create series and target
@@ -178,7 +361,6 @@ class TestFeatureTransformer(TestCase):
                                             len_series,
                                             p=[0.35, 0.35, 0.10, 0.10, 0.05, 0.05]),
                            name='category')
-        print(series.value_counts())
         target = pd.Series(np.random.choice([0, 1], len_series, p=[0.7, 0.3]), name='target')
         # Create shuffled index
         idx = np.arange(len_series)

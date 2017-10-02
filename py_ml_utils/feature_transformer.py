@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import Lasso, LogisticRegression
-from scipy.stats import kurtosis
+from scipy.stats import kurtosis, skew
 
 
 class FeatureTransformation(object):
@@ -218,34 +218,61 @@ class OOFTransformation(FeatureTransformation):  # Or Object
 
 class TargetAverageTransformation(OOFTransformation):
 
-    MEAN = 'MEAN'
-    MEDIAN = 'MEDIAN'
-    STD = 'STD'
-    SKEWNESS = 'SKEW'
-    KURTOSIS = 'KURT'
-    ALL = [MEAN, MEDIAN, STD, SKEWNESS, KURTOSIS]
+    MEAN = {"id": "MEAN", "func": lambda x: np.mean(x)}
+    MEDIAN = {"id": "MEDIAN", "func": lambda x: np.median(x)}
+    STD = {"id": "STD", "func": lambda x: np.std(x)}
+    SKEW = {"id": "SKEW", "func": lambda x: skew(x)}
+    KURT = {"id": "KURT", "func": lambda x: kurtosis(x)}
+    ALL = [MEAN, MEDIAN, STD, SKEW, KURT]
 
-    def __init__(self, feature_name=None, average=MEAN, min_samples_leaf=1, noise_level=0):
+    def __init__(self, feature_name=None,
+                 average=MEAN,
+                 min_samples_leaf=1,
+                 smoothing=False,
+                 label_encoding=False,
+                 noise_level=0):
 
         if average not in self.ALL:
             raise ValueError("average_type must be one of ", self.ALL)
 
         # Call super
         super(TargetAverageTransformation, self).__init__(feature_name)
-        self._process_name = "Target_Average_" + average
         # Keep average type
         self.average = average
+        # Build process name
+        self._process_name = "Target_Average_" + self.average["id"]
         self.noise_level = noise_level
         self.min_samples_leaf = min_samples_leaf
         # Place-holder for averages
         self.averages = None
         self.full_average = None
         self.target_name = None
+        self.smoothing = smoothing
+        self.label_encoding = label_encoding
 
     def _fit_special_process(self, data, target=None):
 
-        # Check counts
-        if self.min_samples_leaf > 1:
+        # If smoothing is requested we don't need to cap counts with min_samples_leaf
+        if self.smoothing:
+            # Need to compute average and count and smooth average using count
+            new_data = pd.concat([data[self._name], target], axis=1)
+            self.averages = new_data.groupby(by=self._name)[target.name].agg(
+                [self.average["func"], "count"]
+            ).rename(columns={'<lambda>': 'func'})
+            # Compute smoothing
+            smoothing = np.exp(-self.averages["count"] / self.min_samples_leaf)
+            # Apply average function to all target data
+            full_avg = self.average["func"](target)
+            # The bigger the count the less full_mean is taken into account
+            self.averages[target.name] = full_avg * smoothing + self.averages["func"] * (1 - smoothing)
+            self.averages.drop(["func", "count"], axis=1, inplace=True)
+            if not self.label_encoding:
+                self.full_average = self.average["func"](target.mean())
+            else:
+                # Label Encode sorted averages
+                self.averages[target.name], _ = pd.factorize(self.averages[target.name], sort=True)
+                self.full_average = -1
+        else:
             # Cap counts to min_samples_leaf
             counts = data[self._name].value_counts().reset_index().rename(
                 columns={"index": self._name, self._name: "counts"}
@@ -254,54 +281,24 @@ class TargetAverageTransformation(OOFTransformation):
             counts.loc[counts.counts < self.min_samples_leaf, "new_value"] = "other"
             # Now merge things back into the original data
             value_map = pd.merge(pd.concat([data[self._name], target], axis=1),
-                                counts[[self._name, "new_value"]],
-                                on=self._name, how="left")
+                                 counts[[self._name, "new_value"]],
+                                 on=self._name, how="left")
             value_map[self._name] = value_map["new_value"]
             new_data = value_map[[f for f in value_map.columns if f != "new_value"]]
+            # Compute averages
+            averages = new_data.groupby(by=self._name).agg({target.name: self.average["func"]})[target.name]
 
-            # compute averages
-            if self.average == self.MEAN:
-                averages = new_data.groupby(by=self._name).mean()[target.name]
-                self.full_average = target.mean()
-            elif self.average == self.MEDIAN:
-                averages = new_data.groupby(by=self._name).median()[target.name]
-                self.full_average = target.median()
-            elif self.average == self.STD:
-                averages = new_data.groupby(by=self._name).std()[target.name]
-                self.full_average = target.std()
-            elif self.average == self.SKEWNESS:
-                averages = new_data.groupby(by=self._name).skew()[target.name]
-                self.full_average = target.skew()
-            elif self.average == self.KURTOSIS:
-                # Kurtosis does not appear to be available on DataFrameGroupby
-                # so we need to go through a lambda function
-                averages = new_data.groupby(by=self._name).agg({target.name: lambda x: kurtosis(x)})[target.name]
-                self.full_average = target.kurtosis()
+            if not self.label_encoding:
+                self.full_average = self.average["func"](target)
+            else:
+                # Label Encode sorted averages
+                averages[target.name], _ = pd.factorize(averages[target.name], sort=True)
+                self.full_average = -1
 
             self.averages = pd.merge(left=counts, left_on="new_value",
                                      right=averages.reset_index(), right_on=self._name,
                                      how="left", suffixes=('', '_avg'))[[self._name, target.name]]
             self.averages.set_index(self._name, inplace=True)
-
-        else:
-            new_data = pd.concat([data[self._name], target], axis=1)
-            if self.average == self.MEAN:
-                self.averages = new_data.groupby(by=self._name).mean()[target.name]
-                self.full_average = target.mean()
-            elif self.average == self.MEDIAN:
-                self.averages = new_data.groupby(by=self._name).median()[target.name]
-                self.full_average = target.median()
-            elif self.average == self.STD:
-                self.averages = new_data.groupby(by=self._name).std()[target.name]
-                self.full_average = target.std()
-            elif self.average == self.SKEWNESS:
-                self.averages = new_data.groupby(by=self._name).skew()[target.name]
-                self.full_average = target.skew()
-            elif self.average == self.KURTOSIS:
-                # Kurtosis does not appear to be available on DataFrameGroupby
-                # so we need to go through a lambda function
-                self.averages = new_data.groupby(by=self._name).agg({target.name: lambda x: kurtosis(x)})[target.name]
-                self.full_average = target.kurtosis()
 
         # register target feature name
         self.target_name = target.name
@@ -314,7 +311,7 @@ class TargetAverageTransformation(OOFTransformation):
             pd.DataFrame(data[self._name]),
             self.averages.reset_index().rename(columns={'index': self.target_name, self.target_name: 'average'}),
             on=self._name,
-            how='left')['average'].rename(self._name + '_' + self.average.lower()).fillna(self.full_average)
+            how='left')['average'].rename(self._name + '_' + self.average["id"].lower()).fillna(self.full_average)
 
         # bring back the index
         ft_series.index = idx
