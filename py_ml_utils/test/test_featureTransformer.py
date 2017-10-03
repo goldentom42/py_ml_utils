@@ -206,18 +206,18 @@ class TestFeatureTransformer(TestCase):
                                          noise_level=0)
         ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
         # Reproducing smoothing procedure
-        counts = trn_series.value_counts()
+        counts = trn_series.value_counts().rename("count")
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
-        full = pd.concat([counts, averages], axis=1)
-        full.columns = ["count", "mean"]
+        full = pd.concat([counts, averages], axis=1).reset_index()
+        full.columns = ["category", "count", "mean"]
         # Compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp( - (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
-                                    right=full.reset_index(),
+                                    right=full,
                                     left_on="test",
-                                    right_on="index",
+                                    right_on="category",
                                     how="left")["smoothed_avg"]
         # print(pd.concat([trn_series, target, ft_series, expected_results], axis=1))
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
@@ -241,18 +241,18 @@ class TestFeatureTransformer(TestCase):
         ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
 
         # Reproducing smoothing procedure
-        counts = trn_series.value_counts()
+        counts = trn_series.value_counts().rename("count")
         averages = pd.concat([trn_series, target], axis=1).groupby("category").median()
-        full = pd.concat([counts, averages], axis=1)
-        full.columns = ["count", "median"]
+        full = pd.concat([counts, averages], axis=1).reset_index()
+        full.columns = ["category", "count", "median"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.median() * (1 - smoothing) + full["median"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
-                                    right=full.reset_index(),
+                                    right=full,
                                     left_on="test",
-                                    right_on="index",
+                                    right_on="category",
                                     how="left")["smoothed_avg"]
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
         self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
@@ -283,18 +283,18 @@ class TestFeatureTransformer(TestCase):
         ft_series = ft.fit_transform(data=trn_series.to_frame(name="test"), target=target)
 
         # Reproducing smoothing procedure
-        counts = trn_series.value_counts()
+        counts = trn_series.value_counts().rename("count")
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
-        full = pd.concat([counts, averages], axis=1)
-        full.columns = ["count", "mean"]
+        full = pd.concat([counts, averages], axis=1).reset_index()
+        full.columns = ["category", "count", "mean"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
-                                    right=full.reset_index(),
+                                    right=full,
                                     left_on="test",
-                                    right_on="index",
+                                    right_on="category",
                                     how="left")["smoothed_avg"]
         lbl_res, _ = pd.factorize(expected_results, sort=True)
         expected_results = pd.Series(lbl_res, index=idx)
@@ -335,23 +335,23 @@ class TestFeatureTransformer(TestCase):
         ft_val_series = ft.transform(data=val_series.to_frame(name="test"))
 
         # Reproducing smoothing procedure and factorization
-        counts = trn_series.value_counts()
+        counts = trn_series.value_counts().rename("count")
         averages = pd.concat([trn_series, target], axis=1).groupby("category").mean()
-        full = pd.concat([counts, averages], axis=1)
-        full.columns = ["count", "mean"]
+        full = pd.concat([counts, averages], axis=1).reset_index()
+        full.columns = ["category", "count", "mean"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
         full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         trn_expected_results = pd.merge(left=trn_series.to_frame(name="test"),
-                                        right=full.reset_index(),
+                                        right=full,
                                         left_on="test",
-                                        right_on="index",
+                                        right_on="category",
                                         how="left")["smoothed_avg"]
         val_expected_results = pd.merge(left=val_series.to_frame(name="test"),
-                                        right=full.reset_index(),
+                                        right=full,
                                         left_on="test",
-                                        right_on="index",
+                                        right_on="category",
                                         how="left")["smoothed_avg"]
         lbl_res, indexer = pd.factorize(trn_expected_results, sort=True)
         lbl_res = indexer.get_indexer(val_expected_results)
