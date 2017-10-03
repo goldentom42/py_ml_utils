@@ -21,7 +21,7 @@ class DatasetTransformer(object):
         pass
 
     @staticmethod
-    def oof_transform(self, train=None, test=None, target=None, folds=None, tf_pairs=None):
+    def oof_transform(train=None, test=None, target=None, folds=None, tf_pairs=None):
         """ Transform dataset using OOF transformation when available """
 
         # Create new datasets

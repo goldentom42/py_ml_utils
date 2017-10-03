@@ -73,11 +73,11 @@ class FeatureSelector(object):
         """ Create dataset for the run using run_features transformations """
 
         dtf = DatasetTransformer()
-        return dtf.transform(train=dataset,
-                             test=None,
-                             target=target,
-                             folds=folds,
-                             tf_pairs=run_features)
+        return dtf.oof_transform(train=dataset,
+                                 test=None,
+                                 target=target,
+                                 folds=folds,
+                                 tf_pairs=run_features)
 
     @staticmethod
     def _get_score(estimator,
