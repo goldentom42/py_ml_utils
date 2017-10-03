@@ -228,7 +228,7 @@ class TargetAverageTransformation(OOFTransformation):
     def __init__(self, feature_name=None,
                  average=MEAN,
                  min_samples_leaf=1,
-                 smoothing=False,
+                 smoothing=None,
                  label_encoding=False,
                  noise_level=0):
 
@@ -255,16 +255,18 @@ class TargetAverageTransformation(OOFTransformation):
         # If smoothing is requested we don't need to cap counts with min_samples_leaf
         if self.smoothing:
             # Need to compute average and count and smooth average using count
+            # Smoothing is computed like in the following paper by Daniele Micci-Barreca
+            # https://kaggle2.blob.core.windows.net/forum-message-attachments/225952/7441/high%20cardinality%20categoricals.pdf
             new_data = pd.concat([data[self._name], target], axis=1)
             self.averages = new_data.groupby(by=self._name)[target.name].agg(
                 [self.average["func"], "count"]
             ).rename(columns={'<lambda>': 'func'})
             # Compute smoothing
-            smoothing = np.exp(-self.averages["count"] / self.min_samples_leaf)
+            smoothing = 1 / (1 + np.exp(-(self.averages["count"] - self.min_samples_leaf) / self.smoothing))
             # Apply average function to all target data
             full_avg = self.average["func"](target)
             # The bigger the count the less full_mean is taken into account
-            self.averages[target.name] = full_avg * smoothing + self.averages["func"] * (1 - smoothing)
+            self.averages[target.name] = full_avg * (1 - smoothing) + self.averages["func"] * smoothing
             self.averages.drop(["func", "count"], axis=1, inplace=True)
             if not self.label_encoding:
                 self.full_average = self.average["func"](target.mean())

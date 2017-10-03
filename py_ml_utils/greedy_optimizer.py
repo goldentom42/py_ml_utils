@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 # from py_ml_utils.feature_transformer import *
 # from py_ml_utils.dataset_transformer import FeatureTransformationPair
+import time
+
 
 # TODO: would be nice to have a history of scores rounds as a column and features as a row
 # Along with best score.
@@ -14,6 +16,7 @@ class GreedyOptimizer(object):
 
     def __init__(self):
         self.approved_features = None
+        self.start = time.time()
 
     def optimize(self,
                  estimator,
@@ -126,10 +129,14 @@ class GreedyOptimizer(object):
         # Update approved features and remove feature from features_to_test
         approved_features += [features_to_test[best_score_idx]]
 
-        print("benchmark : %.5f for %30s / %30s"
+        miss_name = "None"
+        if features_to_test[best_score_idx].inferer:
+            miss_name = features_to_test[best_score_idx].inferer.process_name
+        print("benchmark : %.5f for %s | %s | %s"
               % (benchmark,
                  features_to_test[best_score_idx].transformer.feature_name,
-                 features_to_test[best_score_idx].transformer.process_name))
+                 features_to_test[best_score_idx].transformer.process_name,
+                 miss_name))
 
         approved_names = [feature.transformer.feature_name for feature in approved_features]
         # print("Approved names : ", approved_names)
@@ -155,8 +162,8 @@ class GreedyOptimizer(object):
                                       eps,
                                       benchmark)
 
-    @staticmethod
-    def get_score(features,
+    # @staticmethod
+    def get_score(self, features,
                   criterion,
                   probabilities,
                   dataset,
@@ -207,4 +214,5 @@ class GreedyOptimizer(object):
                 oof[val_idx] = estimator.predict(val_x)
 
         # return score
+        print("%-40s : %.7f in %5.1f" % (features[-1].transformer.feature_name, criterion(target, oof), ((time.time() - self.start) / 60)))
         return criterion(target, oof)

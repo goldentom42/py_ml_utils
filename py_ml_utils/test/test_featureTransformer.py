@@ -212,7 +212,7 @@ class TestFeatureTransformer(TestCase):
         full.columns = ["count", "mean"]
         # Compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp( - (full["count"] - min_leaves) / p_smooth))
-        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
                                     right=full.reset_index(),
@@ -247,7 +247,7 @@ class TestFeatureTransformer(TestCase):
         full.columns = ["count", "median"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
-        full["smoothed_avg"] = target.median() * smoothing + full["median"] * (1 - smoothing)
+        full["smoothed_avg"] = target.median() * (1 - smoothing) + full["median"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
                                     right=full.reset_index(),
@@ -289,7 +289,7 @@ class TestFeatureTransformer(TestCase):
         full.columns = ["count", "mean"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
-        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         expected_results = pd.merge(left=trn_series.to_frame(name="test"),
                                     right=full.reset_index(),
@@ -341,7 +341,7 @@ class TestFeatureTransformer(TestCase):
         full.columns = ["count", "mean"]
         # compute s-shaped smoothing
         smoothing = 1 / (1 + np.exp(- (full["count"] - min_leaves) / p_smooth))
-        full["smoothed_avg"] = target.mean() * smoothing + full["mean"] * (1 - smoothing)
+        full["smoothed_avg"] = target.mean() * (1 - smoothing) + full["mean"] * smoothing
         # check resulting series and index
         trn_expected_results = pd.merge(left=trn_series.to_frame(name="test"),
                                         right=full.reset_index(),

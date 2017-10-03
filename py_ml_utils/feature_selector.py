@@ -151,6 +151,9 @@ class FeatureSelector(object):
             feature_id = FeatureSelector._get_feature_id(feature)
             features_score[feature_id]["name"] = feature.transformer.feature_name
             features_score[feature_id]["process"] = feature.transformer.process_name
+            if feature.inferer:
+                features_score[feature_id]["process"] = feature.transformer.process_name + \
+                                                        "|MISS:" + feature.inferer.process_name
             features_score[feature_id]["shadow"] = feature.transformer.shadow
             features_score[feature_id]["score"] += score
             features_score[feature_id]["count"] += 1
@@ -179,7 +182,7 @@ class FeatureSelector(object):
         feature_id += "_N:" + feature.transformer.feature_name
         feature_id += "_P:" + feature.transformer.process_name
         if feature.inferer:
-            feature_id += "_MISS:" + feature.inferer.missing_process
+            feature_id += "_MISS:" + feature.inferer.process_name
         return feature_id
 
     @staticmethod
