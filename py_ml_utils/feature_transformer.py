@@ -225,6 +225,8 @@ class TargetAverageTransformation(OOFTransformation):
     KURT = {"id": "KURT", "func": lambda x: kurtosis(x)}
     ALL = [MEAN, MEDIAN, STD, SKEW, KURT]
 
+    NAN_REP = "__NP.NAN__"
+
     def __init__(self, feature_name=None,
                  average=MEAN,
                  min_samples_leaf=1,
@@ -257,7 +259,8 @@ class TargetAverageTransformation(OOFTransformation):
             # Need to compute average and count and smooth average using count
             # Smoothing is computed like in the following paper by Daniele Micci-Barreca
             # https://kaggle2.blob.core.windows.net/forum-message-attachments/225952/7441/high%20cardinality%20categoricals.pdf
-            new_data = pd.concat([data[self._name], target], axis=1)
+            new_data = pd.concat([data[self._name].fillna(self.NAN_REP),
+                                  target], axis=1)
             self.averages = new_data.groupby(by=self._name)[target.name].agg(
                 [self.average["func"], "count"]
             ).rename(columns={'<lambda>': 'func'})
@@ -276,13 +279,14 @@ class TargetAverageTransformation(OOFTransformation):
                 self.full_average = -1
         else:
             # Cap counts to min_samples_leaf
-            counts = data[self._name].value_counts().reset_index().rename(
+            counts = data[self._name].fillna(self.NAN_REP).value_counts().reset_index().rename(
                 columns={"index": self._name, self._name: "counts"}
             )
             counts["new_value"] = counts[self._name]
             counts.loc[counts.counts < self.min_samples_leaf, "new_value"] = "other"
+
             # Now merge things back into the original data
-            value_map = pd.merge(pd.concat([data[self._name], target], axis=1),
+            value_map = pd.merge(pd.concat([data[self._name].fillna(self.NAN_REP), target], axis=1),
                                  counts[[self._name, "new_value"]],
                                  on=self._name, how="left")
             value_map[self._name] = value_map["new_value"]
@@ -310,7 +314,7 @@ class TargetAverageTransformation(OOFTransformation):
         idx = data.index
         # First merge the data
         ft_series = pd.merge(
-            pd.DataFrame(data[self._name]),
+            pd.DataFrame(data[self._name].fillna(self.NAN_REP)),
             self.averages.reset_index().rename(columns={'index': self.target_name, self.target_name: 'average'}),
             on=self._name,
             how='left')['average'].rename(self._name + '_' + self.average["id"].lower()).fillna(self.full_average)

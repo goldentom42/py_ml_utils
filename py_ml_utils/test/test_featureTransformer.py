@@ -189,6 +189,33 @@ class TestFeatureTransformer(TestCase):
         self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
         self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
 
+    def test__feature_transform_mean_average_with_nan(self):
+        """ Test TargetAverageTransformation for Out Of Fold and mean average, tests output values and index """
+        # Create series and target
+        len_series = 20
+        np.random.seed(18)
+        series = pd.Series(np.random.choice([1, 2, np.nan], len_series, p=[0.40, 0.40, 0.20]), name='category')
+        target = pd.Series(np.random.choice([0, 1], len_series, p=[0.7, 0.3]), name='target')
+        # Create shuffled index
+        idx = np.arange(len_series)
+        np.random.shuffle(idx)
+        series.index = idx
+        target.index = idx
+        # Create folds
+        folds = KFold(n_splits=2, shuffle=False, random_state=None)
+        # Call feature transformer
+        ft = TargetAverageTransformation(feature_name="test",
+                                         average=TargetAverageTransformation.MEAN,
+                                         noise_level=0)
+        ft_series = ft.get_oof_data(data=series.to_frame(name="test"), target=target, folds=folds)
+        # check resulting series and index
+        expected_results = pd.Series([0.25, 0.25, 0.0, 0.25, 0.0,
+                                      0.25, 0.25, 0.0, 0.25, 0.25,
+                                      0.25, 1./3., 0.25, 2./3., 2./3.,
+                                      2./3., 0.25, 1./3., 2./3., 0.25], index=idx)
+        self.assertAlmostEqual(0, (ft_series - expected_results).abs().sum(), places=5)
+        self.assertAlmostEqual(0, np.sum(np.abs(np.array(ft_series.index) - np.array(expected_results.index))))
+
     def test__feature_transform_mean_average_smoothing(self):
         """ Test TargetAverageTransformation for fit/transform and mean average with smoothing """
         # Create series and target
