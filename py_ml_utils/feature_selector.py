@@ -7,6 +7,7 @@ import time
 from typing import Any, Callable
 from scipy.stats import sem
 import gc
+import sys
 
 class FeatureSelector(object):
 
@@ -270,7 +271,8 @@ class FeatureSelector(object):
                                               "importance": []})  # Changed from 0.0 to []
 
         for run in range(self.max_runs):
-            print("Run #%-5d @ %5.1f min" % (run + 1, (time.time() - self.start_time) / 60), end='', flush=True)
+            print("Run #%-5d @ %5.1f min" % (run + 1, (time.time() - self.start_time) / 60), end='')
+            sys.stdout.flush()
 
             # Sample Features
             run_features = self._sample_features(pairs)
@@ -289,7 +291,8 @@ class FeatureSelector(object):
                                                  run_imp,
                                                  run_cols,
                                                  feat_to_cols)
-            print('\r' * 23, end='', flush=True)
+            print('\r' * 23, end='')
+            sys.stdout.flush()
 
             del run_dataset
             gc.collect()
