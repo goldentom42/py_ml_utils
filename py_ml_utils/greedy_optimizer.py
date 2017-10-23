@@ -35,7 +35,12 @@ class GreedyOptimizer(object):
         else:
             approved_features = []
 
+        # Make sure we don't test features in the approved features set
+        # Remove features with same name from features to test before recursion
         features_to_test = feature_pairs.copy()
+        approved_names = [feature.transformer.feature_name for feature in approved_features]
+        features_to_test = [feature for feature in features_to_test
+                            if feature.transformer.feature_name not in approved_names]
 
         return self.get_best_features(approved_features,
                                       features_to_test,
@@ -201,18 +206,75 @@ class GreedyOptimizer(object):
         # Go through folds to compute score
         for trn_idx, val_idx in folds.split(trans_df, target):
             trn_x, trn_y = trans_df.iloc[trn_idx], target.iloc[trn_idx]
-            val_x = trans_df.iloc[val_idx]
+            val_x, val_y = trans_df.iloc[val_idx], target.iloc[val_idx]
+            # Add support for LightGBM with early stopping
+            if "LGBM" in str(estimator):
+                estimator.fit(trn_x.values, trn_y.values,
+                              eval_set=[(val_x.values, val_y.values)],
+                              early_stopping_rounds=50,
+                              # eval_metric="auc",
+                              verbose=0)
+                best_round = estimator.best_iteration_
 
-            if trn_x.shape[1] <= 1:
-                estimator.fit(trn_x.values.reshape(-1, 1), trn_y.values)
-            else:
-                estimator.fit(trn_x.values, trn_y.values)
+                if probabilities:
+                    z = estimator.predict_proba(val_x.values, num_iteration=best_round)
+                    # print(z.shape)
+                    if len(z.shape) == 1:
+                        oof[val_idx, :] = np.hstack((
+                            1 - estimator.predict_proba(val_x.values).reshape(-1, 1),
+                            estimator.predict_proba(val_x.values).reshape(-1, 1)
+                        ))
+                    else:
+                        oof[val_idx, :] = estimator.predict_proba(val_x.values)
+                else:
+                    oof[val_idx] = estimator.predict(val_x.values, num_iteration=best_round)
+            elif "XGB" in str(estimator):
+                estimator.fit(trn_x.values, trn_y.values,
+                              eval_set=[(val_x.values, val_y.values)],
+                              early_stopping_rounds=50,
+                              verbose=False)
+                best_round = estimator.best_ntree_limit
 
-            if probabilities:
-                oof[val_idx, :] = estimator.predict_proba(val_x)
+                if probabilities:
+                    z = estimator.predict_proba(val_x.values, ntree_limit=best_round)
+                    # print(z.shape)
+                    if len(z.shape) == 1:
+                        oof[val_idx, :] = np.hstack((
+                            1 - estimator.predict_proba(val_x.values).reshape(-1, 1),
+                            estimator.predict_proba(val_x.values).reshape(-1, 1)
+                        ))
+                    else:
+                        oof[val_idx, :] = estimator.predict_proba(val_x.values)
+                else:
+                    oof[val_idx] = estimator.predict(val_x.values, ntree_limit=best_round)
             else:
-                oof[val_idx] = estimator.predict(val_x)
+                if trn_x.shape[1] <= 1:
+                    estimator.fit(trn_x.values.reshape(-1, 1), trn_y.values)
+                else:
+                    estimator.fit(trn_x.values, trn_y.values)
+
+                if probabilities:
+                    z = estimator.predict_proba(val_x.values)
+                    # print(z.shape)
+                    if len(z.shape) == 1:
+                        oof[val_idx, :] = np.hstack((
+                            1 - estimator.predict_proba(val_x.values).reshape(-1, 1),
+                            estimator.predict_proba(val_x.values).reshape(-1, 1)
+                        ))
+                    else:
+                        oof[val_idx, :] = estimator.predict_proba(val_x.values)
+                else:
+                    oof[val_idx] = estimator.predict(val_x.values)
 
         # return score
-        print("%-40s : %.7f in %5.1f" % (features[-1].transformer.feature_name, criterion(target, oof), ((time.time() - self.start) / 60)))
-        return criterion(target, oof)
+        if probabilities and (len(oof.shape) > 1):
+            # Check for binary classification
+            if oof.shape[1] == 2:
+                # Probability estimates can be reduced to the positive predictions
+                # This insures the whole thing works with AUC, GINI...
+                score = criterion(target, oof[:, 1])
+        else:
+            score = criterion(target, oof)
+
+        print("%-40s : %.7f in %5.1f" % (features[-1].transformer.feature_name, score, ((time.time() - self.start) / 60)))
+        return score
