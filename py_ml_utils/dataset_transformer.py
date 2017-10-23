@@ -13,7 +13,10 @@ class FeatureTransformationPair(object):
         self.transformer = transformer
 
     def get_id(self):
-        return self.transformer.feature_name + "|" + self.transformer.process_name
+        # ID is made up of feature name, transformation name and shadow indicator
+        return self.transformer.feature_name + "|" + \
+               self.transformer.process_name + "|" + \
+               str(self.transformer.shadow)
 
 
 class DatasetTransformer(object):
@@ -45,6 +48,15 @@ class DatasetTransformer(object):
                 ft_df = pair.transformer.get_oof_data(train, target, folds)
             else:
                 ft_df = pair.transformer.fit_transform(train, target)
+
+            # Check if we are using a shadow feature
+            # If this is the case we have to rename the features to avoid collision
+            # with genuine features
+            # This is mainly used for feature selection process where features have to be compared
+            # to shadow versions of themselves
+            if pair.transformer.shadow:
+                sha_cols = ["sha__" + f for f in ft_df.columns]
+                ft_df.columns = sha_cols
 
             if "DataFrame" in str(type(ft_df)):
                 features_to_cols_dict[pair.get_id()] = [col for col in ft_df.columns]

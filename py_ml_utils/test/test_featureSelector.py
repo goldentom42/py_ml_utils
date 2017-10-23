@@ -57,11 +57,9 @@ class TestFeatureSelector(TestCase):
                            folds=folds,
                            maximize=False)
 
-        scores.sort_values(by="importance", ascending=False, inplace=True)
-
-        self.assertAlmostEqual(0.084482, scores.importance.values[0], places=6)
+        scores.sort_values(by="importance_mean", ascending=False, inplace=True)
+        self.assertAlmostEqual(0.1743180, scores.importance_mean.values[0], places=6)
         self.assertEqual("petal_length_*_petal_width", scores.feature.values[0])
-        self.assertAlmostEqual(1.0, scores.importance.sum())
 
     def test_feature_selection_without_importances_log_loss(self):
         """ Test FeatureSelector with the iris dataset and log_loss metric with a classifier that does not

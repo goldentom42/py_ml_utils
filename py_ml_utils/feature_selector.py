@@ -5,7 +5,8 @@ from py_ml_utils.dataset_transformer import FeatureTransformationPair, DatasetTr
 from collections import defaultdict
 import time
 from typing import Any, Callable
-
+from scipy.stats import sem
+import gc
 
 class FeatureSelector(object):
 
@@ -162,8 +163,11 @@ class FeatureSelector(object):
                 # Retrieve list of columns for current feature
                 list_of_cols = feat_to_cols[feature.get_id()]
                 # Sum up importances of all columns for current feature transformation
+                imp = 0.0
                 for col in list_of_cols:
-                    features_score[feature_id]["importance"] += importances[col]
+                    imp += importances[col]
+                # Append reconciled importances to the list of importances for current feature
+                features_score[feature_id]["importance"].append(imp)  # Changed from += to append
 
         features_score["_Mean_score_"]["name"] = "Mean score"
         features_score["_Mean_score_"]["score"] += score
@@ -191,15 +195,28 @@ class FeatureSelector(object):
         processes = [feature_scores[key]["process"] for key in feature_scores.keys()]
         shadows = [feature_scores[key]["shadow"] for key in feature_scores.keys()]
         scores = [feature_scores[key]["score"] / feature_scores[key]["count"] for key in feature_scores.keys()]
-        importances = [feature_scores[key]["importance"] / feature_scores[key]["count"]
-                       for key in feature_scores.keys()]
+        # Average the importances
+        importances_mean = [np.mean(feature_scores[key]["importance"])
+                            if len(feature_scores[key]["importance"]) > 0 else 0
+                            for key in feature_scores.keys()]
+        # Compute the standard deviation
+        importances_std = [np.std(feature_scores[key]["importance"])
+                           if len(feature_scores[key]["importance"]) > 0 else 0
+                           for key in feature_scores.keys()]
+        # Compute standard error to the mean
+        importances_sem = [sem(feature_scores[key]["importance"])
+                           if len(feature_scores[key]["importance"]) > 0 else 0
+                           for key in feature_scores.keys()]
+
         counts = [feature_scores[key]["count"] for key in feature_scores.keys()]
         full_data = pd.DataFrame()
         full_data["feature"] = names
         full_data["process"] = processes
         full_data["shadow"] = shadows
         full_data["score"] = scores
-        full_data["importance"] = importances / (np.sum(importances) + 1e-7)
+        full_data["importance_mean"] = importances_mean
+        full_data["importance_std"] = importances_std
+        full_data["importance_sem"] = importances_sem
         full_data["occurences"] = counts
 
         return full_data.sort_values(by="score", ascending=(not maximize))
@@ -214,6 +231,26 @@ class FeatureSelector(object):
                folds=None,
                maximize=True):
         # type: (pd.DataFrame, pd.Series, [FeatureTransformationPair], Any, Any, bool, Any, bool) -> pd.DataFrame
+        """
+        Evaluate the predicting power of features using metric score
+        and feature importance (if the estimator supports it)
+        :param dataset: DataFrame containing the original data
+        :param target: target to be estimated by the estimator
+        :param pairs: List of TransformationPairs to be tested on the dataset
+        :param estimator: classifier/regressor used to predict the target
+        :param metric: metric to be used to evaluate features
+        :param probability: True if metric uses probability estimates
+        :param folds: Folds used for K-fold cross validation
+        :param maximize: True if metric has to be maximized
+        :return: DataFrame containing :
+           - Feature name,
+           - transformation process,
+           - Shadow indicator,
+           - mean score, importance, standard deviation and standard error asscoiated with the feature
+        """
+
+        # Enable garbage collection
+        gc.enable()
 
         # Get start time
         self.start_time = time.time()
@@ -230,10 +267,10 @@ class FeatureSelector(object):
                                               "shadow": True,
                                               "count": 0,
                                               "score": 0.0,
-                                              "importance": 0.0})
+                                              "importance": []})  # Changed from 0.0 to []
 
         for run in range(self.max_runs):
-            print("Run #%-5d @ %5.1f min" % (run + 1, (time.time() - self.start_time) / 60), end='')
+            print("Run #%-5d @ %5.1f min" % (run + 1, (time.time() - self.start_time) / 60), end='', flush=True)
 
             # Sample Features
             run_features = self._sample_features(pairs)
@@ -252,6 +289,9 @@ class FeatureSelector(object):
                                                  run_imp,
                                                  run_cols,
                                                  feat_to_cols)
-            print('\r' * 22, end='')
+            print('\r' * 23, end='', flush=True)
+
+            del run_dataset
+            gc.collect()
 
         return self._build_features_recap(feature_scores, maximize)
