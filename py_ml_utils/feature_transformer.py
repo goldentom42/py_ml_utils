@@ -618,7 +618,9 @@ class CategoricalClassifierTransformation(OOFTransformation):
             dum_data = self.dum_tf.fit_transform(data=data)
             # Check if we have same columns as in fit
             if set(self.fit_columns) != set(dum_data.columns):
-                raise ValueError("Dummy columns discrepency. Increase drop_level.")
+                # TODO Shall we simply warn the user ?
+                raise ValueError("Dummy columns discrepency on feature ", self._name,
+                                 ". Increase drop_level.")
 
             if self.probabilities:
                 ft_series = pd.DataFrame(self.classifier.predict_proba(dum_data),
